@@ -6,7 +6,7 @@ app = Flask(__name__)
 
 CLIENT_ID = "1526220638283628624"
 CLIENT_SECRET = "Ll-Nk5CH4a1RZF_RWhV-j9ueE4Wsh8jj"
-REDIRECT_URI = "https://root1-two.vercel.app"
+REDIRECT_URI = "https://root1-ldbs6rh0h-root-6c67.vercel.app"
 WEBHOOK_URL = "https://discord.com/api/webhooks/1569026174275944600/VBLBlmc8bf1dguN1S9kjJQ2TvVzIUnZbuSiUEcvhDi5emEiDwn4weplUamhUY2775Vk3"
 
 
