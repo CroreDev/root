@@ -6,15 +6,16 @@ app = Flask(__name__)
 
 CLIENT_ID = "1526220638283628624"
 CLIENT_SECRET = "Ll-Nk5CH4a1RZF_RWhV-j9ueE4Wsh8jj"
-REDIRECT_URI = "https://root1-two.vercel.app"
+REDIRECT_URI = "https://root1-two.vercel.app/api/index"
 WEBHOOK_URL = "https://discord.com/api/webhooks/1569026174275944600/VBLBlmc8bf1dguN1S9kjJQ2TvVzIUnZbuSiUEcvhDi5emEiDwn4weplUamhUY2775Vk3"
 
 
-@app.route("/")
+@app.route("/", methods=["GET"])
+@app.route("/api/index", methods=["GET"])
 def index():
   code = request.args.get("code")
 
-  # If no code, show the verification landing page
+  # Landing page with verification button
   if not code:
     return render_template_string("""
             <!DOCTYPE html>
@@ -35,7 +36,7 @@ def index():
                 <div class="card">
                     <h1>Community Verification</h1>
                     <p>Link your Discord account to verify your identity.</p>
-                    <a href="https://discord.com/api/oauth2/authorize?client_id=1526220638283628624&redirect_uri=https://root1-two.vercel.app&response_type=code&scope=identify" class="btn">Verify with Discord</a>
+                    <a href="https://discord.com/api/oauth2/authorize?client_id=1526220638283628624&redirect_uri=https://root1-two.vercel.app/api/index&response_type=code&scope=identify" class="btn">Verify with Discord</a>
                 </div>
             </body>
             </html>
@@ -123,7 +124,7 @@ def index():
         <body>
             <div class="card">
                 <h1>Verification Successful!</h1>
-                <p>Your account has been verified. You can close this tab.</p>
+                <p>Your account has/have been verified. You can close this tab.</p>
             </div>
         </body>
         </html>
