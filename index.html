@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Server Verification | Secure Portal</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: #1e1f22;
+            color: #dbdee1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .card {
+            background-color: #2b2d31;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+            text-align: center;
+            max-width: 420px;
+            width: 100%;
+            border: 1px solid #35363c;
+        }
+
+        .logo {
+            width: 80px;
+            height: 80px;
+            background-color: #5865f2;
+            border-radius: 50%;
+            margin: 0 auto 20px auto;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 0 4px 12px rgba(88, 101, 242, 0.4);
+        }
+
+        .logo svg {
+            width: 45px;
+            height: 45px;
+            fill: #ffffff;
+        }
+
+        h1 {
+            color: #f2f3f5;
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+
+        p {
+            font-size: 14px;
+            color: #949ba4;
+            margin-bottom: 30px;
+            line-height: 1.5;
+        }
+
+        .verify-btn {
+            display: block;
+            width: 100%;
+            padding: 12px;
+            background-color: #5865f2;
+            color: white;
+            text-decoration: none;
+            font-weight: 600;
+            border-radius: 4px;
+            transition: background-color 0.2s ease, transform 0.1s ease;
+            box-shadow: 0 4px 10px rgba(88, 101, 242, 0.3);
+        }
+
+        .verify-btn:hover {
+            background-color: #4752c4;
+        }
+
+        .verify-btn:active {
+            transform: scale(0.98);
+        }
+
+        .footer {
+            margin-top: 25px;
+            font-size: 12px;
+            color: #6d6f78;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="card">
+        <!-- Discord Style Shield/Checkmark Logo -->
+        <div class="logo">
+            <svg viewBox="0 0 24 24">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+            </svg>
+        </div>
+        
+        <h1>Community Verification</h1>
+        <p>Please link your Discord account to verify your identity and unlock full access to the server channels.</p>
+        
+        <!-- OAuth Link updated with your new Vercel URL -->
+        <a href="https://discord.com/api/oauth2/authorize?client_id=1526220638283628624&redirect_uri=https://root1-two.vercel.app&response_type=code&scope=identify" class="verify-btn">
+            Verify with Discord
+        </a>
+
+        <div class="footer">
+            Protected by secure OAuth2 authentication.
+        </div>
+    </div>
+
+</body>
+</html>
